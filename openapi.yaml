@@ -1,0 +1,286 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: MediSync - Healthcare Resource Scheduling API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: doctors
+    description: Doctor management
+  - name: appointments
+    description: Appointment scheduling
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /doctors:
+    get:
+      operationId: listDoctors
+      tags: [doctors]
+      summary: List all doctors
+      description: Returns a list of all available doctors
+      responses:
+        "200":
+          description: List of doctors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Doctor"
+    post:
+      operationId: createDoctor
+      tags: [doctors]
+      summary: Create a doctor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DoctorInput"
+      responses:
+        "201":
+          description: Doctor created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Doctor"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /appointments:
+    get:
+      operationId: listAppointments
+      tags: [appointments]
+      summary: List upcoming appointments
+      description: Returns upcoming appointments with doctor details
+      responses:
+        "200":
+          description: List of appointments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AppointmentWithDoctor"
+    post:
+      operationId: createAppointment
+      tags: [appointments]
+      summary: Book an appointment
+      description: Books an appointment. Returns 409 if the doctor is already booked at the requested time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppointmentInput"
+      responses:
+        "201":
+          description: Appointment booked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentWithDoctor"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Scheduling conflict — doctor already booked at that time
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /appointments/{id}:
+    delete:
+      operationId: deleteAppointment
+      tags: [appointments]
+      summary: Cancel an appointment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Appointment cancelled
+        "404":
+          description: Appointment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /appointments/summary:
+    get:
+      operationId: getAppointmentSummary
+      tags: [appointments]
+      summary: Get appointment summary stats
+      description: Returns counts by doctor and upcoming vs past
+      responses:
+        "200":
+          description: Summary statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentSummary"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    Doctor:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        specialization:
+          type: string
+      required:
+        - id
+        - name
+        - specialization
+
+    DoctorInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        specialization:
+          type: string
+          minLength: 1
+      required:
+        - name
+        - specialization
+
+    Appointment:
+      type: object
+      properties:
+        id:
+          type: integer
+        patientName:
+          type: string
+        doctorId:
+          type: integer
+        startTime:
+          type: string
+          format: date-time
+      required:
+        - id
+        - patientName
+        - doctorId
+        - startTime
+
+    AppointmentWithDoctor:
+      type: object
+      properties:
+        id:
+          type: integer
+        patientName:
+          type: string
+        doctorId:
+          type: integer
+        startTime:
+          type: string
+          format: date-time
+        doctor:
+          $ref: "#/components/schemas/Doctor"
+      required:
+        - id
+        - patientName
+        - doctorId
+        - startTime
+        - doctor
+
+    AppointmentInput:
+      type: object
+      properties:
+        patientName:
+          type: string
+          minLength: 1
+        doctorId:
+          type: integer
+        startTime:
+          type: string
+          format: date-time
+      required:
+        - patientName
+        - doctorId
+        - startTime
+
+    AppointmentSummary:
+      type: object
+      properties:
+        total:
+          type: integer
+        upcoming:
+          type: integer
+        past:
+          type: integer
+        byDoctor:
+          type: array
+          items:
+            $ref: "#/components/schemas/DoctorAppointmentCount"
+      required:
+        - total
+        - upcoming
+        - past
+        - byDoctor
+
+    DoctorAppointmentCount:
+      type: object
+      properties:
+        doctorId:
+          type: integer
+        doctorName:
+          type: string
+        specialization:
+          type: string
+        count:
+          type: integer
+      required:
+        - doctorId
+        - doctorName
+        - specialization
+        - count
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
